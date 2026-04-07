@@ -1,5 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
+  <!-- ══════════════════════════════════════════════
+         ESTILOS DE IMPRESIÓN / PDF – OPSV Santa Cruz
+         Pegar esto justo ANTES de </head>
+    ══════════════════════════════════════════════ -->
+    <style>
+      /* Botón flotante (solo en pantalla) */
+      #btn-pdf {
+        position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+        display: flex; align-items: center; gap: 8px;
+        padding: 12px 20px;
+        background: #252C61; color: #fff;
+        font-family: 'Montserrat', sans-serif; font-size: 14px; font-weight: 600;
+        border: none; border-radius: 8px; cursor: pointer;
+        box-shadow: 0 4px 16px rgba(37,44,97,0.35);
+        transition: background 0.18s, transform 0.15s;
+      }
+      #btn-pdf:hover { background: #1a2050; transform: translateY(-2px); }
+
+      @media print {
+
+        @page {
+          size: A4 landscape;
+          margin: 12mm 14mm 14mm 14mm;
+        }
+
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        html, body {
+          overflow: visible !important;
+          background: #fff !important;
+        }
+
+        /* Ocultar botón PDF y elementos interactivos */
+        #btn-pdf,
+        button,
+        input,
+        select { display: none !important; }
+
+        /* Evitar cortes dentro de gráficos y cards */
+        canvas, figure, table,
+        [class*="card"], [class*="chart"], [class*="graph"] {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+
+        /* Forzar colores de impresión en gráficos */
+        canvas { width: 100% !important; height: auto !important; }
+      }
+   </style>
+   <!-- FIN ESTILOS DE IMPRESIÓN -->
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
@@ -10,6 +63,18 @@
     <script type="module" crossorigin src="./assets/index-DFHlZ1xS.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-XFwjSB-3.css">
   </head>
+   <!-- Botón flotante PDF – -->
+    <button id="btn-pdf" onclick="window.print()" aria-label="Descargar PDF">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="6 9 6 2 18 2 18 9"/>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <rect x="6" y="14" width="12" height="8"/>
+      </svg>
+      Descargar PDF
+    </button>
+    <!-- FIN Botón PDF -->
   <body>
     <div id="root"></div>
   <script data-pplx-inline-edit>
