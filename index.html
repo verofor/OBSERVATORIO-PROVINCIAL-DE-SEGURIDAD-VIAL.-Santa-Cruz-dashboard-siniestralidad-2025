@@ -1,58 +1,149 @@
 <!DOCTYPE html>
 <html lang="en">
-  <!-- ══════════════════════════════════════════════
-         ESTILOS DE IMPRESIÓN / PDF – OPSV Santa Cruz
-         Pegar esto justo ANTES de </head>
-    ══════════════════════════════════════════════ -->
-    <style>
-      /* Botón flotante (solo en pantalla) */
-      #btn-pdf {
-        position: fixed; bottom: 28px; right: 28px; z-index: 9999;
-        display: flex; align-items: center; gap: 8px;
-        padding: 12px 20px;
-        background: #252C61; color: #fff;
-        font-family: 'Montserrat', sans-serif; font-size: 14px; font-weight: 600;
-        border: none; border-radius: 8px; cursor: pointer;
-        box-shadow: 0 4px 16px rgba(37,44,97,0.35);
-        transition: background 0.18s, transform 0.15s;
+  <!-- ══════════════════════════════════════════════════════
+     PRINT / PDF OPSV – versión 2 (reemplaza la versión anterior)
+     Pegá TODO este bloque justo ANTES de </head>
+     en tu index.html de GitHub
+══════════════════════════════════════════════════════ -->
+<style>
+  /* ── Botón flotante (solo en pantalla) ── */
+  #btn-pdf {
+    position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 22px;
+    background: #252C61; color: #fff;
+    font-family: 'Montserrat', 'Inter', sans-serif;
+    font-size: 14px; font-weight: 600; letter-spacing: .02em;
+    border: none; border-radius: 8px; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(37,44,97,.4);
+    transition: background .18s, transform .15s, box-shadow .18s;
+  }
+  #btn-pdf:hover  { background: #1a2050; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(37,44,97,.5); }
+  #btn-pdf:active { transform: translateY(0); }
+
+  /* ── Estilos de impresión ── */
+  @media print {
+
+    /* Página A4 apaisada con márgenes para informe oficial */
+    @page { size: A4 landscape; margin: 12mm 14mm 14mm 14mm; }
+
+    /* Forzar colores e imágenes de fondo */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* Ocultar botón y elementos interactivos */
+    #btn-pdf, .no-print { display: none !important; }
+
+    /* Evitar cortes dentro de gráficos, cards y tablas */
+    canvas, figure, table, img,
+    [class*="card"], [class*="chart"],
+    [class*="graph"], [class*="widget"] {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
+    /* Ajustar canvas al ancho de la página */
+    canvas { width: 100% !important; max-width: 100% !important; height: auto !important; }
+  }
+</style>
+
+<!-- ── Botón (pegá también ANTES de </body>) ── -->
+<script>
+/* ════════════════════════════════════════════════════
+   beforeprint / afterprint
+   Libera overflow y height del dashboard antes de
+   imprimir y los restaura cuando termina.
+   ════════════════════════════════════════════════════ */
+(function () {
+  var saved = [];
+
+  function liberarDOM() {
+    saved = [];
+    var allEls = document.querySelectorAll('*');
+
+    allEls.forEach(function (el) {
+      var cs = window.getComputedStyle(el);
+
+      var needsFix = false;
+      var patch = { el: el, props: {} };
+
+      /* 1. Overflow hidden / auto / scroll → visible */
+      ['overflow','overflowX','overflowY'].forEach(function(prop) {
+        var val = cs[prop];
+        if (val === 'hidden' || val === 'auto' || val === 'scroll') {
+          patch.props[prop] = el.style[prop];
+          el.style[prop] = 'visible';
+          needsFix = true;
+        }
+      });
+
+      /* 2. Altura fija (px) → auto */
+      var h = cs.height;
+      if (h && h !== 'auto' && h.endsWith('px')) {
+        var hPx = parseFloat(h);
+        /* Solo liberamos alturas que parecen "viewport-locked" (> 300px)
+           para no romper el layout de cards pequeños */
+        if (hPx > 300) {
+          patch.props.height    = el.style.height;
+          patch.props.maxHeight = el.style.maxHeight;
+          el.style.height    = 'auto';
+          el.style.maxHeight = 'none';
+          needsFix = true;
+        }
       }
-      #btn-pdf:hover { background: #1a2050; transform: translateY(-2px); }
 
-      @media print {
-
-        @page {
-          size: A4 landscape;
-          margin: 12mm 14mm 14mm 14mm;
-        }
-
-        * {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-
-        html, body {
-          overflow: visible !important;
-          background: #fff !important;
-        }
-
-        /* Ocultar botón PDF y elementos interactivos */
-        #btn-pdf,
-        button,
-        input,
-        select { display: none !important; }
-
-        /* Evitar cortes dentro de gráficos y cards */
-        canvas, figure, table,
-        [class*="card"], [class*="chart"], [class*="graph"] {
-          page-break-inside: avoid;
-          break-inside: avoid;
-        }
-
-        /* Forzar colores de impresión en gráficos */
-        canvas { width: 100% !important; height: auto !important; }
+      /* 3. contain (React portals, Radix, etc.) */
+      var contain = cs.contain;
+      if (contain && contain !== 'none' && contain !== 'auto') {
+        patch.props.contain = el.style.contain;
+        el.style.contain = 'none';
+        needsFix = true;
       }
-   </style>
-   <!-- FIN ESTILOS DE IMPRESIÓN -->
+
+      /* 4. position: fixed → relative (nav, topbar) */
+      if (cs.position === 'fixed') {
+        patch.props.position = el.style.position;
+        patch.props.top      = el.style.top;
+        el.style.position = 'relative';
+        el.style.top      = 'auto';
+        needsFix = true;
+      }
+
+      if (needsFix) saved.push(patch);
+    });
+  }
+
+  function restaurarDOM() {
+    saved.forEach(function (patch) {
+      Object.keys(patch.props).forEach(function (prop) {
+        patch.el.style[prop] = patch.props[prop];
+      });
+    });
+    saved = [];
+  }
+
+  /* Función principal del botón */
+  window.imprimirPDF = function () {
+    var tituloOrig = document.title;
+    document.title = 'Informe Siniestralidad Vial 2025 – OPSV Santa Cruz';
+    window.print();
+    setTimeout(function () { document.title = tituloOrig; }, 1500);
+  };
+
+  /* Listeners nativos de impresión */
+  window.addEventListener('beforeprint', liberarDOM);
+  window.addEventListener('afterprint',  restaurarDOM);
+
+  /* matchMedia para Chrome (beforeprint no siempre dispara en Chrome) */
+  var mq = window.matchMedia('print');
+  mq.addEventListener('change', function (e) {
+    if (e.matches) liberarDOM(); else restaurarDOM();
+  });
+})();
+</script>
+<!-- FIN PRINT OPSV v2 -->
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
@@ -63,18 +154,18 @@
     <script type="module" crossorigin src="./assets/index-DFHlZ1xS.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-XFwjSB-3.css">
   </head>
-   <!-- Botón flotante PDF – -->
-    <button id="btn-pdf" onclick="window.print()" aria-label="Descargar PDF">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="6 9 6 2 18 2 18 9"/>
-        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-        <rect x="6" y="14" width="12" height="8"/>
-      </svg>
-      Descargar PDF
-    </button>
-    <!-- FIN Botón PDF -->
+  <!-- Boton flotante-->
+<button id="btn-pdf" onclick="imprimirPDF()" aria-label="Descargar informe como PDF">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2.5"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <polyline points="6 9 6 2 18 2 18 9"/>
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+    <rect x="6" y="14" width="12" height="8"/>
+  </svg>
+  Descargar PDF
+</button>
+<!-- FIN botón PDF -->
   <body>
     <div id="root"></div>
   <script data-pplx-inline-edit>
